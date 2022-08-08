@@ -37,17 +37,21 @@ class StripPP(BasePostprocessor):
 
     def calc_smoothed_profile(self, data: np.ndarray, axis: int) -> np.ndarray:
         prof = np.mean(data, axis=axis)[self.prof_slice]
+        if self.spp_config.sigma <= 0:
+            return prof
         prof = sn.gaussian_filter1d(prof, self.spp_config.sigma, mode="constant", cval=0.0)
         return prof
 
     def _try_search_first_peak_index(self, profile: np.ndarray) -> Tuple[bool, int]:
+        sharpness = np.zeros(len(profile), dtype=np.float64)
         for i in range(1, len(profile) - 1):
             _prev = profile[i-1]
             _curr = profile[i]
             _next = profile[i+1]
+            sharpness[i] = 2 * _curr / (_prev + _next)
 
-            if _prev < _curr and _curr > _next:
-                return True, i
+        if np.max(sharpness) > 0:
+            return True, int(np.argmax(sharpness))
         return False, -1
 
     @staticmethod
